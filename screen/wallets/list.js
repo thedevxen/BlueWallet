@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
-import { View, TouchableOpacity, Text, FlatList, InteractionManager, RefreshControl, ScrollView } from 'react-native';
+import { View, TouchableOpacity, Text, FlatList, InteractionManager, RefreshControl, ScrollView, Linking, Image } from 'react-native';
 import { BlueLoading, SafeBlueArea, WalletsCarousel, BlueList, BlueHeaderDefaultMain, BlueTransactionListItem } from '../../BlueComponents';
 import { Icon } from 'react-native-elements';
 import { NavigationEvents } from 'react-navigation';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import PropTypes from 'prop-types';
+import DeeplinkSchemaMatch from '../../class/deeplinkSchemaMatch';
 let EV = require('../../events');
 let A = require('../../analytics');
 /** @type {AppStorage} */
@@ -19,6 +20,14 @@ export default class WalletsList extends Component {
       borderBottomWidth: 0,
       elevation: 0,
     },
+    headerLeft: navigation.getParam('onScanPressed') && (
+      <TouchableOpacity
+        style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end' }}
+        onPress={navigation.state.params.onScanPressed}
+      >
+        <Icon size={22} name="qrcode-scan" type="material-community" color={BlueApp.settings.foregroundColor} />
+      </TouchableOpacity>
+    ),
     headerRight: (
       <TouchableOpacity
         style={{ marginHorizontal: 16, width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end' }}
@@ -33,6 +42,7 @@ export default class WalletsList extends Component {
 
   constructor(props) {
     super(props);
+    props.navigation.setParams({ onScanPressed: this.onScanPressed });
     this.state = {
       isLoading: true,
       isFlatListRefreshControlHidden: true,
@@ -253,6 +263,16 @@ export default class WalletsList extends Component {
     }
   };
 
+  onScanPressed = () => {
+    this.props.navigation.navigate('ScanQrAddress', {
+      onBarScanned: value => {
+        if (DeeplinkSchemaMatch.hasSchema(value)) {
+          Linking.openURL(value);
+        }
+      },
+    });
+  };
+
   _renderItem = data => {
     return <BlueTransactionListItem item={data.item} itemPriceUnit={data.item.walletPreferredBalanceUnit} />;
   };
@@ -272,7 +292,12 @@ export default class WalletsList extends Component {
             <RefreshControl onRefresh={() => this.refreshTransactions()} refreshing={!this.state.isFlatListRefreshControlHidden} />
           }
         >
-          <BlueHeaderDefaultMain leftText={loc.wallets.list.title} onNewWalletPress={() => this.props.navigation.navigate('AddWallet')} />
+          <BlueHeaderDefaultMain
+            leftText={loc.wallets.list.title}
+            onNewWalletPress={() => this.props.navigation.navigate('AddWallet')}
+            onNFCScanPress={this.onNFCScanPress}
+            isNFCButtonHidden={!this.state.isNFCSupported}
+          />
           <WalletsCarousel
             removeClippedSubviews={false}
             data={this.state.wallets}
@@ -283,7 +308,7 @@ export default class WalletsList extends Component {
             onSnapToItem={index => {
               this.onSnapToItem(index);
             }}
-            ref={c => this.walletsCarousel = c}
+            ref={c => (this.walletsCarousel = c)}
           />
           <BlueList>
             <FlatList
@@ -325,5 +350,6 @@ export default class WalletsList extends Component {
 WalletsList.propTypes = {
   navigation: PropTypes.shape({
     navigate: PropTypes.func,
+    setParams: PropTypes.func,
   }),
 };
